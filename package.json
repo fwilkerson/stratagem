@@ -1,0 +1,21 @@
+{
+  "name": "stratagem",
+  "version": "0.0.1",
+  "description": "classic board games",
+  "main": "server.js",
+  "author": "Frank A. Wilkerson",
+  "license": "MIT",
+  "dependencies": {
+    "compression": "^1.7.0",
+    "express": "^4.15.4",
+    "helmet": "^3.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0",
+    "rollup": "^0.47.4"
+  },
+  "scripts": {
+    "client": "rollup -c --watch",
+    "server": "set DEBUG=stratagem:* & nodemon server"
+  }
+}
