@@ -7,7 +7,7 @@ const getMarkerStyle = memoize(
 function Marker(player, active) {
   return {
     el: "div",
-    attributes: [{ class: getMarkerStyle(player, active) }]
+    attributes: { class: getMarkerStyle(player, active) }
   };
 }
 

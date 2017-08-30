@@ -1,12 +1,12 @@
 import Squares from "./Squares";
 
-function Board(board, command) {
+function Board(state, command) {
   return {
     el: "div",
-    attributes: [{ class: "board" }],
-    children: board.map(row => ({
+    attributes: { class: "board" },
+    children: state.board.map(row => ({
       el: "div",
-      attributes: [{ class: "row" }],
+      attributes: { class: "row" },
       children: Squares(row, command)
     }))
   };

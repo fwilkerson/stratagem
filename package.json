@@ -11,10 +11,12 @@
     "helmet": "^3.8.1"
   },
   "devDependencies": {
+    "concurrently": "^3.5.0",
     "nodemon": "^1.11.0",
     "rollup": "^0.47.4"
   },
   "scripts": {
+    "start": "concurrently --kill-others \"yarn client\" \"yarn server\"",
     "client": "rollup -c --watch",
     "server": "set DEBUG=stratagem:* & nodemon server"
   }

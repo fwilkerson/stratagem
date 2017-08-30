@@ -1,23 +1,21 @@
-import { identity } from "../utils/index";
+const identity = a => a;
 
 export function bootstrap(component, targetId) {
   function command(state, updateFunc) {
-    // const start = new Date().valueOf();
     updateFunc = updateFunc || identity;
     const updatedState = updateFunc(state);
     update(
-      component(updatedState, command.bind(this, updatedState)),
+      component(updatedState, command.bind(null, updatedState)),
       document.getElementById(targetId)
     );
-    // console.log(new Date().valueOf() - start);
   }
   return {
     start: command
   };
 }
 
-function update(rootComponent, target) {
-  const app = render(rootComponent);
+function update(componentTree, target) {
+  const app = render(componentTree);
   const listeners = {};
   const clone = target.cloneNode(false);
 
@@ -55,43 +53,28 @@ function render(elements) {
   return elements.reduce(renderElement, { result: "", events: {} });
 }
 
-function renderElement(accumulator, next) {
+function renderElement(acc, next) {
   if (next.el) {
-    const attributes = renderAttributes(next.attributes);
+    const attr = renderAttributes(next.attributes);
     const children = render(next.children);
 
-    accumulator.events = Object.assign({}, accumulator.events, children.events);
+    acc.events = Object.assign({}, acc.events, children.events);
 
     if (next.attributes && next.events) {
-      const attribute = next.attributes.find(z => z["id"]);
-      if (attribute) {
-        accumulator.events[attribute.id] = handleEvents(next.events);
-      }
+      const id = next.attributes.id;
+      if (id) acc.events[id] = next.events;
     }
 
-    accumulator.result += `<${next.el} ${attributes}>${children.result}</${next.el}>`;
-  } else accumulator.result += next;
+    acc.result += `<${next.el} ${attr}>${children.result}</${next.el}>`;
+  } else acc.result += next;
 
-  return accumulator;
+  return acc;
 }
 
-function renderAttributes(attributes) {
-  attributes = attributes || [];
-  return attributes.reduce((accumulator, next) => {
-    const attributeList = [];
-    Object.keys(next).forEach(key => {
-      attributeList.push(`${key}="${next[key]}"`);
-    });
-    return accumulator + attributeList.join(" ");
-  }, "");
-}
-
-function handleEvents(events) {
-  events = events || [];
-  return events.reduce((accumulator, next) => {
-    Object.keys(next).forEach(key => {
-      accumulator[key] = next[key];
-    });
-    return accumulator;
-  }, {});
+function renderAttributes(attr) {
+  if (!attr) return "";
+  return Object.keys(attr).reduce(
+    (acc, next) => (acc += `${next}="${attr[next]}"`),
+    ""
+  );
 }

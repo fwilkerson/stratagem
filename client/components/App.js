@@ -1,9 +1,9 @@
 import Board from "./Board";
 
-export default function App(board, command) {
+export default function App(state, command) {
   return {
     el: "div",
-    attributes: [{ class: "app" }],
-    children: [Board(board, command)]
+    attributes: { class: "app" },
+    children: [Board(state, command)]
   };
 }
