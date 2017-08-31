@@ -1,6 +1,192 @@
 (function () {
 'use strict';
 
+const CREATE_NODE = 'CREATE_NODE';
+const REMOVE_NODE = 'REMOVE_NODE';
+const REPLACE_NODE = 'REPLACE_NODE';
+const UPDATE_NODE = 'UPDATE_NODE';
+const SET_QUIRK = 'SET_QUIRK';
+const REMOVE_QUIRK = 'REMOVE_QUIRK';
+
+function diff(oldView, newView) {
+  if (!oldView) return { type: CREATE_NODE, newView };
+  if (!newView) return { type: REMOVE_NODE };
+  if (changed(oldView, newView)) return { type: REPLACE_NODE, newView };
+  if (newView.el) {
+    return {
+      type: UPDATE_NODE,
+      children: diffChildren(oldView, newView),
+      quirks: diffQuirks(oldView, newView)
+    };
+  }
+}
+
+function changed(oldView, newView) {
+  return (
+    typeof oldView !== typeof newView ||
+    (typeof newView === 'string' && oldView !== newView) ||
+    oldView.type !== newView.type
+  );
+}
+
+function diffChildren(oldView, newView) {
+  const patches = [];
+
+  const length = Math.max(oldView.children.length, newView.children.length);
+  for (let i = 0; i < length; i++) {
+    patches.push(diff(oldView.children[i], newView.children[i]));
+  }
+
+  return patches;
+}
+
+function diffQuirks(oldView, newView) {
+  const patches = [];
+  const quirks = Object.assign({}, oldView.quirks, newView.quirks);
+  Object.keys(quirks).forEach(key => {
+    const oldVal = oldView.quirks[key];
+    const newVal = newView.quirks[key];
+
+    if (!newVal) {
+      patches.push({ type: REMOVE_QUIRK, key, value: oldVal });
+    } else if (!oldVal || oldVal !== newVal) {
+      patches.push({ type: SET_QUIRK, key, value: newVal });
+    }
+  });
+  return patches;
+}
+
+function patch(parent, patches, index = 0) {
+  if (!patches) return;
+
+  const el =
+    parent.childNodes[index] || parent.childNodes[parent.childNodes.length - 1];
+
+  switch (patches.type) {
+    case CREATE_NODE:
+      parent.appendChild(createElement(patches.newView));
+      break;
+    case REMOVE_NODE:
+      if (el) parent.removeChild(el);
+      break;
+    case REPLACE_NODE:
+      parent.replaceChild(createElement(patches.newView), el);
+      break;
+    case UPDATE_NODE:
+      const { children, quirks } = patches;
+      quirks.forEach(patchQuirk.bind(null, el));
+      for (let i = 0, l = children.length; i < l; i++) {
+        patch(el, children[i], i);
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+function patchQuirk(el, patch) {
+  switch (patch.type) {
+    case SET_QUIRK:
+      el.setAttribute(patch.key, patch.value);
+      break;
+    case REMOVE_QUIRK:
+      el.removeAttribute(patch.key);
+      break;
+  }
+}
+
+function createElement(view) {
+  if (!view.el) return document.createTextNode(view);
+
+  const node = document.createElement(view.el);
+  setQuirks(node, view.quirks);
+  view.children.map(createElement).forEach(node.appendChild.bind(node));
+  return node;
+}
+
+function setQuirks(node, quirks) {
+  if (!quirks) return;
+  Object.keys(quirks).forEach(key => {
+    node.setAttribute(key, quirks[key]);
+  });
+}
+
+function getEventMap(view) {
+  let events = {};
+  let uniqueEvents = [];
+
+  function mapEvents(view) {
+    if (!view.el) return;
+
+    if (view.events && view.quirks && view.quirks.id) {
+      events[view.quirks.id] = view.events;
+      uniqueEvents = uniqueEvents.concat(
+        Object.keys(view.events).filter(key => {
+          return !uniqueEvents.some(x => x === key);
+        })
+      );
+    }
+
+    view.children.forEach(mapEvents);
+  }
+
+  mapEvents(view);
+  return { events, uniqueEvents };
+}
+
+// Consider requiring children be an array like elm does
+
+function frankenApp({ id, func, state, actions }) {
+  let _view;
+  let _eventMap;
+
+  let _target = document.getElementById(id);
+  let _func = func;
+  let _state = state || {};
+  let _actions = actions || {};
+
+  function render(view, target) {
+    _eventMap = getEventMap(view);
+    listenForEvents(_eventMap, target);
+    target.appendChild(createElement(view));
+  }
+
+  function update(view) {
+    _eventMap = getEventMap(view);
+    const patches = diff(_view, view);
+    patch(_target, patches);
+    _view = view;
+  }
+
+  // TODO: Patch event listeners on update
+  function listenForEvents({ events, uniqueEvents }, target) {
+    uniqueEvents.forEach(event => {
+      target.addEventListener(event, e => routeEvent(e, e.target));
+    });
+  }
+
+  function routeEvent(e, target) {
+    if (!target) return;
+
+    const eventHandlers = _eventMap.events[target.id];
+    if (eventHandlers && eventHandlers[e.type]) {
+      return eventHandlers[e.type](e);
+    }
+
+    routeEvent(e, target.parentElement);
+  }
+
+  function dispatch(updateFunc) {
+    _state = updateFunc(_state);
+    update(_func({ actions: _actions, state: _state, dispatch }));
+  }
+
+  return function() {
+    _view = _func({ actions: _actions, state: _state, dispatch });
+    render(_view, _target);
+  };
+}
+
 function memoize(func) {
   const cache = {};
   return function() {
@@ -16,15 +202,15 @@ const getOffset = memoize(y => {
   return (y + 1) % 2;
 });
 
-const PLAYER_ONE = "player-one";
-const PLAYER_TWO = "player-two";
+const PLAYER_ONE = 'player-one';
+const PLAYER_TWO = 'player-two';
 
 function getPlayer(y, x) {
   if (x % 2 === getOffset(y)) {
     if (y < 3) return PLAYER_TWO;
     if (y > 4) return PLAYER_ONE;
   }
-  return "";
+  return '';
 }
 
 function getDefaultBoard() {
@@ -44,6 +230,7 @@ function getDefaultBoard() {
 }
 
 function selectSquare(target, state) {
+  console.log(target);
   if (!state.activePiece) return setActivePiece(target, state);
   if (target.player) return setActivePiece(target, state);
   if (isMoveValid(state.activePiece, target)) return claimSquare(target, state);
@@ -69,7 +256,8 @@ function setActivePiece(target, state) {
       let active = false;
       if (squaresMatch(square, target)) {
         active = !target.active;
-        if (active && square.player) activePiece = square;
+        if (active && square.player)
+          activePiece = Object.assign({}, square, { active });
       }
       return Object.assign({}, square, { active });
     })
@@ -102,10 +290,10 @@ function claimSquare(target, state, jumpedSquare) {
         return Object.assign({}, square, { player: activePiece.player });
 
       if (squaresMatch(square, activePiece))
-        return Object.assign({}, square, { player: "" });
+        return Object.assign({}, square, { player: '' });
 
       if (jumpedSquare && squaresMatch(square, jumpedSquare))
-        return Object.assign({}, square, { player: "" });
+        return Object.assign({}, square, { player: '' });
 
       return square;
     })
@@ -113,8 +301,8 @@ function claimSquare(target, state, jumpedSquare) {
   return Object.assign({}, state, { board, activePiece: null });
 }
 
-const LEFT = "LEFT";
-const RIGHT = "RIGHT";
+const LEFT = 'LEFT';
+const RIGHT = 'RIGHT';
 
 function isJumpLocationValid(activePiece, target) {
   let yIsValid;
@@ -174,138 +362,61 @@ function getJumpedSquare(state, direction) {
 }
 
 const getMarkerStyle = memoize(
-  (player, active) => `circle ${player}${active ? " active" : ""}`
+  (player, active) => `circle ${player}${active ? ' active' : ''}`
 );
 
 function Marker(player, active) {
+  const style = getMarkerStyle(player, active);
   return {
-    el: "div",
-    attributes: { class: getMarkerStyle(player, active) }
+    el: 'div',
+    quirks: { class: style },
+    children: []
   };
 }
 
 const getSquareStyle = memoize(
-  (y, x) => `square${x % 2 === getOffset(y) ? " black" : ""}`
+  (y, x) => `square${x % 2 === getOffset(y) ? ' black' : ''}`
 );
 
-function Squares(row, command) {
+function Squares(row, dispatch) {
   return row.map(square => ({
-    el: "div",
-    attributes: {
+    el: 'div',
+    quirks: {
       id: `${square.y}-${square.x}`,
       class: getSquareStyle(square.y, square.x)
     },
-    events: { click: () => command(selectSquare.bind(null, square)) },
-    children: square.player && Marker(square.player, square.active)
+    events: {
+      click: () => dispatch(state => selectSquare(square, state))
+    },
+    children: square.player ? [Marker(square.player, square.active)] : []
   }));
 }
 
-function Board(state, command) {
+function Board({ state, dispatch }) {
   return {
-    el: "div",
-    attributes: { class: "board" },
+    el: 'div',
+    quirks: { class: 'board' },
     children: state.board.map(row => ({
-      el: "div",
-      attributes: { class: "row" },
-      children: Squares(row, command)
+      el: 'div',
+      quirks: { class: 'row' },
+      children: Squares(row, dispatch)
     }))
   };
 }
 
-function App(state, command) {
+function App(props) {
   return {
-    el: "div",
-    attributes: { class: "app" },
-    children: [Board(state, command)]
+    el: 'div',
+    quirks: { class: 'app' },
+    children: [Board(props)]
   };
 }
 
-const identity = a => a;
-
-function bootstrap(component, targetId) {
-  function command(state, updateFunc) {
-    updateFunc = updateFunc || identity;
-    const updatedState = updateFunc(state);
-    update(
-      component(updatedState, command.bind(null, updatedState)),
-      document.getElementById(targetId)
-    );
-  }
-  return {
-    start: command
-  };
-}
-
-function update(componentTree, target) {
-  const app = render(componentTree);
-  const listeners = {};
-  const clone = target.cloneNode(false);
-
-  for (let propName in app.events) {
-    const prop = app.events[propName];
-    for (let eventName in prop) {
-      if (listeners[eventName]) continue;
-      listeners[eventName] = 1;
-      clone.addEventListener(eventName, e =>
-        eventListener(app.events, e.target, e.type)
-      );
-    }
-  }
-
-  clone.innerHTML = app.result;
-
-  target.parentNode.replaceChild(clone, target);
-}
-
-function eventListener(events, target, type) {
-  if (!target) return;
-
-  const eventHandlers = events[target.id];
-  if (eventHandlers) {
-    const handler = eventHandlers[type];
-    if (handler) return handler();
-  }
-
-  eventListener(events, target.parentElement, type);
-}
-
-function render(elements) {
-  elements = elements || [];
-  if (!Array.isArray(elements)) elements = [elements];
-  return elements.reduce(renderElement, { result: "", events: {} });
-}
-
-function renderElement(acc, next) {
-  if (next.el) {
-    const attr = renderAttributes(next.attributes);
-    const children = render(next.children);
-
-    acc.events = Object.assign({}, acc.events, children.events);
-
-    if (next.attributes && next.events) {
-      const id = next.attributes.id;
-      if (id) acc.events[id] = next.events;
-    }
-
-    acc.result += `<${next.el} ${attr}>${children.result}</${next.el}>`;
-  } else acc.result += next;
-
-  return acc;
-}
-
-function renderAttributes(attr) {
-  if (!attr) return "";
-  return Object.keys(attr).reduce(
-    (acc, next) => (acc += `${next}="${attr[next]}"`),
-    ""
-  );
-}
-
-const initialState = {
+const state = {
   activePiece: null,
   board: getDefaultBoard()
 };
 
-bootstrap(App, "root").start(initialState);
+frankenApp({ id: 'root', func: App, state })();
 
 }());

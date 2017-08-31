@@ -1,13 +1,15 @@
-import { memoize } from "../utils/index";
+import { memoize } from '../utils/index';
 
 const getMarkerStyle = memoize(
-  (player, active) => `circle ${player}${active ? " active" : ""}`
+  (player, active) => `circle ${player}${active ? ' active' : ''}`
 );
 
 function Marker(player, active) {
+  const style = getMarkerStyle(player, active);
   return {
-    el: "div",
-    attributes: { class: getMarkerStyle(player, active) }
+    el: 'div',
+    quirks: { class: style },
+    children: []
   };
 }
 

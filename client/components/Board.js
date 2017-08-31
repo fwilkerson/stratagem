@@ -1,13 +1,13 @@
-import Squares from "./Squares";
+import Squares from './Squares';
 
-function Board(state, command) {
+function Board({ state, dispatch }) {
   return {
-    el: "div",
-    attributes: { class: "board" },
+    el: 'div',
+    quirks: { class: 'board' },
     children: state.board.map(row => ({
-      el: "div",
-      attributes: { class: "row" },
-      children: Squares(row, command)
+      el: 'div',
+      quirks: { class: 'row' },
+      children: Squares(row, dispatch)
     }))
   };
 }

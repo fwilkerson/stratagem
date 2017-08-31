@@ -1,10 +1,10 @@
-import App from "./components/App.js";
-import { bootstrap } from "./core/index.js";
-import { getDefaultBoard } from "./utils/index.js";
+import frankenApp from './core/franken-app.js';
+import App from './components/App.js';
+import { getDefaultBoard } from './utils/index.js';
 
-const initialState = {
+const state = {
   activePiece: null,
   board: getDefaultBoard()
 };
 
-bootstrap(App, "root").start(initialState);
+frankenApp({ id: 'root', func: App, state })();
