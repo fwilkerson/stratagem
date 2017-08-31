@@ -13,15 +13,15 @@ export const getOffset = memoize(y => {
   return (y + 1) % 2;
 });
 
-export const PLAYER_ONE = "player-one";
-export const PLAYER_TWO = "player-two";
+export const PLAYER_ONE = 'player-one';
+export const PLAYER_TWO = 'player-two';
 
 function getPlayer(y, x) {
   if (x % 2 === getOffset(y)) {
     if (y < 3) return PLAYER_TWO;
     if (y > 4) return PLAYER_ONE;
   }
-  return "";
+  return '';
 }
 
 export function getDefaultBoard() {
@@ -41,6 +41,7 @@ export function getDefaultBoard() {
 }
 
 export function selectSquare(target, state) {
+  console.log(target);
   if (!state.activePiece) return setActivePiece(target, state);
   if (target.player) return setActivePiece(target, state);
   if (isMoveValid(state.activePiece, target)) return claimSquare(target, state);
@@ -66,7 +67,8 @@ function setActivePiece(target, state) {
       let active = false;
       if (squaresMatch(square, target)) {
         active = !target.active;
-        if (active && square.player) activePiece = square;
+        if (active && square.player)
+          activePiece = Object.assign({}, square, { active });
       }
       return Object.assign({}, square, { active });
     })
@@ -99,10 +101,10 @@ function claimSquare(target, state, jumpedSquare) {
         return Object.assign({}, square, { player: activePiece.player });
 
       if (squaresMatch(square, activePiece))
-        return Object.assign({}, square, { player: "" });
+        return Object.assign({}, square, { player: '' });
 
       if (jumpedSquare && squaresMatch(square, jumpedSquare))
-        return Object.assign({}, square, { player: "" });
+        return Object.assign({}, square, { player: '' });
 
       return square;
     })
@@ -110,8 +112,8 @@ function claimSquare(target, state, jumpedSquare) {
   return Object.assign({}, state, { board, activePiece: null });
 }
 
-const LEFT = "LEFT";
-const RIGHT = "RIGHT";
+const LEFT = 'LEFT';
+const RIGHT = 'RIGHT';
 
 function isJumpLocationValid(activePiece, target) {
   let yIsValid;

@@ -1,9 +1,9 @@
-import Board from "./Board";
+import Board from './Board';
 
-export default function App(state, command) {
+export default function App(props) {
   return {
-    el: "div",
-    attributes: { class: "app" },
-    children: [Board(state, command)]
+    el: 'div',
+    quirks: { class: 'app' },
+    children: [Board(props)]
   };
 }
